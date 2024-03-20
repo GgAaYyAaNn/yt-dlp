@@ -52,9 +52,14 @@ class PinterestBaseIE(InfoExtractor):
             'uploader': traverse_obj(data, ('closeup_attribution', 'full_name')),
             'uploader_id': str_or_none(traverse_obj(data, ('closeup_attribution', 'id'))),
             'repost_count': int_or_none(data.get('repin_count')),
-            'comment_count': int_or_none(data.get('comment_count')),
             'categories': traverse_obj(data, ('pin_join', 'visual_annotation'), expected_type=list),
             'tags': traverse_obj(data, 'hashtags', expected_type=list),
+
+            # values we get aren't correct. they change every refresh.
+            'saves_count': traverse_obj(data, ('aggregated_pin_data', 'aggregated_stats', 'saves'), expected_type=int),
+            'reactions_count': traverse_obj(data, ('reaction_counts', '1'), expected_type=int),
+            'comment_count': int_or_none(data.get('comment_count')) or traverse_obj(
+                data, ('aggregated_pin_data', 'comment_count'), expected_type=int),
         }
 
         urls = []
