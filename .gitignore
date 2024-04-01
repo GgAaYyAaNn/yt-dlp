@@ -126,3 +126,6 @@ yt-dlp.zip
 # Plugins
 ytdlp_plugins/
 yt-dlp-plugins
+
+
+my_test.py
