@@ -503,7 +503,8 @@ class FacebookIE(InfoExtractor):
                 or get_first(post, ('video', 'creation_story', 'attachments', ..., 'media', lambda k, v: k == 'owner' and v['name']))
                 or get_first(post, (..., 'video', lambda k, v: k == 'owner' and v['name']))
                 or get_first(post, ('node', 'actors', ..., {dict}))
-                or get_first(post, ('event', 'event_creator', {dict})) or {})
+                or get_first(post, ('event', 'event_creator', {dict}))
+                or get_first(post, ('video', 'creation_story', 'actors', 0)) or {})
             uploader = uploader_data.get('name') or (
                 clean_html(get_element_by_id('fbPhotoPageAuthorName', webpage))
                 or self._search_regex(
