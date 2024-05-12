@@ -724,7 +724,8 @@ class FacebookIE(InfoExtractor):
                 if video_info.get('thumbnail'):
                     webpage_info['thumbnail'] = video_info['thumbnail']
                 if video_info.get('title') and 'title' in webpage_info:
-                    del webpage_info['title']
+                    if webpage_info['title'].lower().startswith('facebook'):
+                        del webpage_info['title']
                 return merge_dicts(webpage_info, video_info)
 
         if not video_data:
