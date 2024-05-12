@@ -194,7 +194,11 @@ def _firefox_browser_dirs():
         yield os.path.expanduser('~/Library/Application Support/Firefox/Profiles')
 
     else:
-        yield from map(os.path.expanduser, ('~/.mozilla/firefox', '~/snap/firefox/common/.mozilla/firefox'))
+        yield from map(os.path.expanduser, (
+            '~/.mozilla/firefox',
+            '~/snap/firefox/common/.mozilla/firefox',
+            '~/.var/app/org.mozilla.firefox/.mozilla/firefox',
+        ))
 
 
 def _firefox_cookie_dbs(roots):
@@ -342,6 +346,11 @@ def _process_chrome_cookie(decryptor, host_key, name, value, encrypted_value, pa
         value = decryptor.decrypt(encrypted_value)
         if value is None:
             return is_encrypted, None
+
+    # In chrome, session cookies have expires_utc set to 0
+    # In our cookie-store, cookies that do not expire should have expires set to None
+    if not expires_utc:
+        expires_utc = None
 
     return is_encrypted, http.cookiejar.Cookie(
         version=0, name=name, value=value, port=None, port_specified=False,
