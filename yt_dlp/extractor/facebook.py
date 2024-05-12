@@ -665,6 +665,11 @@ class FacebookIE(InfoExtractor):
                     process_formats(info)
                     description = try_get(video, lambda x: x['savable_description']['text'])
                     title = video.get('name')
+                    if not title:
+                        title_data = extract_relay_prefetched_data(fr'"id":"{v_id}",.+"title"')
+                        if title_data:
+                            title = traverse_obj(
+                                title_data, ('tahoe_sidepane_renderer', 'video', 'title', 'text'))
                     if title:
                         info.update({
                             'title': title,
@@ -718,6 +723,8 @@ class FacebookIE(InfoExtractor):
                 # preserve preferred_thumbnail in video info
                 if video_info.get('thumbnail'):
                     webpage_info['thumbnail'] = video_info['thumbnail']
+                if video_info.get('title') and 'title' in webpage_info:
+                    del webpage_info['title']
                 return merge_dicts(webpage_info, video_info)
 
         if not video_data:
