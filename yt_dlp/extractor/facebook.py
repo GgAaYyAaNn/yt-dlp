@@ -670,6 +670,8 @@ class FacebookIE(InfoExtractor):
                         if title_data:
                             title = traverse_obj(
                                 title_data, ('tahoe_sidepane_renderer', 'video', 'title', 'text'))
+                    if not title:
+                        title = traverse_obj(data, ('video', 'creation_story', 'message', 'text'))
                     if title:
                         info.update({
                             'title': title,
