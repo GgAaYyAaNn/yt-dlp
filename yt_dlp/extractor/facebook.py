@@ -504,7 +504,9 @@ class FacebookIE(InfoExtractor):
                 or get_first(post, (..., 'video', lambda k, v: k == 'owner' and v['name']))
                 or get_first(post, ('node', 'actors', ..., {dict}))
                 or get_first(post, ('event', 'event_creator', {dict}))
-                or get_first(post, ('video', 'creation_story', 'actors', 0)) or {})
+                or get_first(post, ('video', 'creation_story', 'actors', 0)) or {}
+                or get_first(post, ('video', 'creation_story', 'short_form_video_context', 'video_owner')))
+
             uploader = uploader_data.get('name') or (
                 clean_html(get_element_by_id('fbPhotoPageAuthorName', webpage))
                 or self._search_regex(
@@ -512,6 +514,8 @@ class FacebookIE(InfoExtractor):
             timestamp = int_or_none(self._search_regex(
                 r'<abbr[^>]+data-utime=["\'](\d+)', webpage,
                 'timestamp', default=None))
+            if not timestamp:
+                timestamp = int_or_none(get_first(post, ('video', 'creation_story', 'creation_time')))
             thumbnail = self._html_search_meta(
                 ['og:image', 'twitter:image'], webpage, 'thumbnail', default=None)
             # some webpages contain unretrievable thumbnail urls
@@ -679,7 +683,8 @@ class FacebookIE(InfoExtractor):
                         })
                     else:
                         info['title'] = description or 'Facebook video #%s' % v_id
-                    entries.append(info)
+                    if formats:
+                        entries.append(info)
 
                 def parse_attachment(attachment, key='media'):
                     media = attachment.get(key) or {}
