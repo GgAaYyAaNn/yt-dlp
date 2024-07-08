@@ -45,7 +45,8 @@ class PinterestBaseIE(InfoExtractor):
                 })
 
         info = {
-            'title': strip_or_none(traverse_obj(data, 'title', 'grid_title', default='')),
+            'title': strip_or_none(traverse_obj(data, 'title', 'grid_title', default='') or traverse_obj(
+                data, 'grid_title', default='')),
             'description': traverse_obj(data, 'seo_description', 'description'),
             'timestamp': unified_timestamp(data.get('created_at')),
             'thumbnails': thumbnails,
