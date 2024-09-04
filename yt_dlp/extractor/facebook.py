@@ -484,7 +484,10 @@ class FacebookIE(InfoExtractor):
             media = traverse_obj(post, (..., 'attachments', ..., lambda k, v: (
                 k == 'media' and str(v['id']) == video_id and v['__typename'] == 'Video')), expected_type=dict)
             title = get_first(media, ('title', 'text'))
-            description = get_first(media, ('creation_story', 'comet_sections', 'message', 'story', 'message', 'text'))
+            description = (
+                get_first(media,('creation_story', 'comet_sections', 'message', 'story', 'message', 'text'))
+                or traverse_obj(post, (..., 'tahoe_sidepane_renderer', 'video', 'creation_story', 'comet_sections', 'message', 'story', 'message', 'text'), get_all=False)
+            )
             page_title = title or self._html_search_regex((
                 r'<h2\s+[^>]*class="uiHeaderTitle"[^>]*>(?P<content>[^<]*)</h2>',
                 r'(?s)<span class="fbPhotosPhotoCaption".*?id="fbPhotoPageCaption"><span class="hasCaption">(?P<content>.*?)</span>',
