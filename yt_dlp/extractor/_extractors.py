@@ -2096,6 +2096,7 @@ from .tiktok import (
     TikTokTagIE,
     TikTokUserIE,
     TikTokVMIE,
+    TikTokPhotoIE
 )
 from .tmz import TMZIE
 from .tnaflix import (

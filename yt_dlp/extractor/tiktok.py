@@ -911,6 +911,32 @@ class TikTokIE(TikTokBaseIE):
         raise ExtractorError(f'Video not available, status code {status}', video_id=video_id)
 
 
+class TikTokPhotoIE(TikTokBaseIE):
+    _VALID_URL = r'https?://www\.tiktok\.com/(?:embed|@(?P<user_id>[\w\.-]+)?/photo)/(?P<id>\d+)'
+    _EMBED_REGEX = [rf'<(?:script|iframe)[^>]+\bsrc=(["\'])(?P<url>{_VALID_URL})']
+
+    _TESTS = []
+
+    def _real_extract(self, url):
+        photo_id, user_id = self._match_valid_url(url).group('id', 'user_id')
+
+        if self._KNOWN_APP_INFO:
+            try:
+                return self._extract_aweme_app(photo_id)
+            except ExtractorError as e:
+                e.expected = True
+                self.report_warning(f'{e}; trying with webpage')
+
+        url = self._create_url(user_id, photo_id)
+        video_data, status = self._extract_web_data_and_status(url, photo_id)
+
+        if video_data and status == 0:
+            return self._parse_aweme_video_web(video_data, url, photo_id)
+        elif status == 10216:
+            raise ExtractorError('This photo is private', expected=True)
+        raise ExtractorError(f'Photo not available, status code {status}', video_id=photo_id)
+
+
 class TikTokUserIE(TikTokBaseIE):
     # improved from https://github.com/bashonly/yt-dlp-TTUser
 
