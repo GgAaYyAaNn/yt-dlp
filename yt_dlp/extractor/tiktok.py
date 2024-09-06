@@ -931,10 +931,16 @@ class TikTokPhotoIE(TikTokBaseIE):
         video_data, status = self._extract_web_data_and_status(url, photo_id)
 
         if video_data and status == 0:
-            return self._parse_aweme_video_web(video_data, url, photo_id)
+            return self._parse_aweme_photo_web(video_data, url, photo_id)
         elif status == 10216:
             raise ExtractorError('This photo is private', expected=True)
         raise ExtractorError(f'Photo not available, status code {status}', video_id=photo_id)
+
+    def _parse_aweme_photo_web(self, video_data, url, photo_id):
+        return {
+            **self._parse_aweme_video_web(video_data, url, photo_id),
+            'images': traverse_obj(video_data, ('imagePost', 'images', ..., 'imageURL', 'urlList', [0]))
+        }
 
 
 class TikTokUserIE(TikTokBaseIE):
