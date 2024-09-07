@@ -979,6 +979,17 @@ class FacebookReelIE(InfoExtractor):
             f'https://m.facebook.com/watch/?v={video_id}&_rdr', FacebookIE, video_id)
 
 
+class FacebookShareIE(InfoExtractor):
+    _VALID_URL = r'https?://(?:[\w-]+\.)?facebook\.com/share/r/(?P<id>[A-Za-z0-9]+)'
+    IE_NAME = 'facebook:share'
+
+    _TESTS = []
+
+    def _real_extract(self, url):
+        new_url = self._request_webpage(url, self._match_id(url), headers={'User-Agent': 'facebookexternalhit/1.1'}).url
+        return self.url_result(new_url)
+
+
 class FacebookAdsIE(InfoExtractor):
     _VALID_URL = r'https?://(?:[\w-]+\.)?facebook\.com/ads/library/?\?(?:[^#]+&)?id=(?P<id>\d+)'
     IE_NAME = 'facebook:ads'
