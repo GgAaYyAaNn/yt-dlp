@@ -533,6 +533,12 @@ class FacebookIE(InfoExtractor):
                     webpage, 'view count', default=None)),
                 'concurrent_view_count': get_first(post, (
                     ('video', (..., ..., 'attachments', ..., 'media')), 'liveViewerCount', {int_or_none})),
+                'reaction_count': parse_count(self._search_regex(
+                    (r'reaction_count["\']\s*:\s*\{"count"\s*:\s*(\d+)', r'reaction_count["\']\s*:\s*(\d+)'),
+                    webpage, 'reaction count', default=None)),
+                'comment_count': parse_count(self._search_regex(
+                    (r'comments["\']\s*:\s*\{"total_count"\s*:\s*(\d+)',),
+                    webpage, 'comment count', default=None)),
             }
 
             info_json_ld = self._search_json_ld(webpage, video_id, default={})
