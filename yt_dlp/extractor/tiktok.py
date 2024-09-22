@@ -1392,7 +1392,7 @@ class DouyinIE(TikTokBaseIE):
 
 
 class TikTokVMIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:(?:vm|vt)\.tiktok\.com|(?:www\.)tiktok\.com/t)/(?P<id>\w+)'
+    _VALID_URL = r'https?://(?:(?:vm|vt|m)\.tiktok\.com(/v)?|(?:www\.)tiktok\.com/[tv])/(?P<id>\w+)'
     IE_NAME = 'vm.tiktok'
 
     _TESTS = [{
