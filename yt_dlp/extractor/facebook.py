@@ -993,7 +993,7 @@ class FacebookReelIE(InfoExtractor):
 
 
 class FacebookShareIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:[\w-]+\.)?facebook\.com/share/r/(?P<id>[A-Za-z0-9]+)'
+    _VALID_URL = r'https?://(?:[\w-]+\.)?facebook\.com/share/[rv]/(?P<id>[A-Za-z0-9]+)'
     IE_NAME = 'facebook:share'
 
     _TESTS = []
