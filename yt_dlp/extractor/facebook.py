@@ -633,12 +633,18 @@ class FacebookIE(InfoExtractor):
                         video = video['creation_story']
                         video['owner'] = traverse_obj(video, ('short_form_video_context', 'video_owner'))
                         video.update(reel_info)
-                    fmt_data = traverse_obj(video, ('videoDeliveryLegacyFields', {dict})) or video
+                    fmt_data = traverse_obj(video, ('videoDeliveryLegacyFields', {dict})) or traverse_obj(
+                        video, ('videoDeliveryResponseFragment', 'videoDeliveryResponseResult', {dict})) or video
+                    if 'progressive_urls' in fmt_data:
+                        for progressive_data in fmt_data['progressive_urls']:
+                            prograssive_quality = progressive_data['metadata']['quality'].lower()
+                            fmt_data[f'progressive_{prograssive_quality}_url'] = progressive_data['progressive_url']
                     formats = []
                     q = qualities(['sd', 'hd'])
                     for key, format_id in (('playable_url', 'sd'), ('playable_url_quality_hd', 'hd'),
                                            ('playable_url_dash', ''), ('browser_native_hd_url', 'hd'),
-                                           ('browser_native_sd_url', 'sd')):
+                                           ('browser_native_sd_url', 'sd'),
+                                           ('progressive_sd_url', 'sd'), ('progressive_hd_url', 'hd')):
                         playable_url = fmt_data.get(key)
                         if not playable_url:
                             continue
