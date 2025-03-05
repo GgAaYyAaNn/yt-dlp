@@ -24,8 +24,9 @@ class PinterestBaseIE(InfoExtractor):
         return self._download_json(
             f'https://www.pinterest.com/resource/{resource}Resource/get/',
             video_id, f'Download {resource} JSON metadata', query={
-                'data': json.dumps({'options': options}),
-            })['resource_response']
+                'data': json.dumps({'options': options})},
+            headers={"X-Pinterest-PWS-Handler": "www/[username].js"},  # https://github.com/yt-dlp/yt-dlp/issues/12529
+        )['resource_response']
 
     def _extract_video(self, data, extract_formats=True):
         video_id = data['id']
