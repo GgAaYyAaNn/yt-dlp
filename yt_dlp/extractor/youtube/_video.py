@@ -2087,6 +2087,24 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             return ret
         return inner
 
+    def _load_nsig_code_from_cache(self, player_id):
+        cache_id = ('nsig code', player_id)
+
+        if func_code := self._player_cache.get(cache_id):
+            return func_code
+
+        func_code = self.cache.load('youtube-nsig', player_id, min_ver='2025.03.26')
+        if func_code:
+            self._player_cache[cache_id] = func_code
+
+        return func_code
+
+    def _store_nsig_code_to_cache(self, player_id, func_code):
+        cache_id = ('nsig code', player_id)
+        if cache_id not in self._player_cache:
+            self.cache.store('youtube-nsig', player_id, func_code)
+            self._player_cache[cache_id] = func_code
+
     def _decrypt_signature(self, s, video_id, player_url):
         """Turn the encrypted s field into a working signature"""
         extract_sig = self._cached(
@@ -2127,6 +2145,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 video_id=video_id, note='Executing signature code').strip()
 
         self.write_debug(f'Decrypted nsig {s} => {ret}')
+        # Only cache nsig func JS code to disk if successful, and only once
+        self._store_nsig_code_to_cache(player_id, func_code)
         return ret
 
     def _extract_n_function_name(self, jscode, player_url=None):
@@ -2176,10 +2196,14 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         """Returns tuple of strings: variable assignment code, variable name, variable value code"""
         return self._search_regex(
             r'''(?x)
-                \'use\s+strict\';\s*
+                (?P<q1>["\'])use\s+strict(?P=q1);\s*
                 (?P<code>
                     var\s+(?P<name>[a-zA-Z0-9_$]+)\s*=\s*
-                    (?P<value>"(?:[^"\\]|\\.)+"\.split\("[^"]+"\))
+                    (?P<value>
+                        (?P<q2>["\'])(?:(?!(?P=q2)).|\\.)+(?P=q2)
+                        \.split\((?P<q3>["\'])(?:(?!(?P=q3)).)+(?P=q3)\)
+                        |\[\s*(?:(?P<q4>["\'])(?:(?!(?P=q4)).|\\.)*(?P=q4)\s*,?\s*)+\]
+                    )
                 )[;,]
             ''', jscode, 'global variable', group=('code', 'name', 'value'), default=(None, None, None))
 
@@ -2187,7 +2211,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         global_var, varname, _ = self._extract_player_js_global_var(full_code)
         if global_var:
             self.write_debug(f'Prepending n function code with global array variable "{varname}"')
-            code = global_var + ', ' + code
+            code = global_var + '; ' + code
         else:
             self.write_debug('No global array variable found in player JS')
         return argnames, re.sub(
@@ -2196,7 +2220,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
     def _extract_n_function_code(self, video_id, player_url):
         player_id = self._extract_player_info(player_url)
-        func_code = self.cache.load('youtube-nsig', player_id, min_ver='2025.03.21')
+        func_code = self._load_nsig_code_from_cache(player_id)
         jscode = func_code or self._load_player(video_id, player_url)
         jsi = JSInterpreter(jscode)
 
@@ -2208,7 +2232,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         # XXX: Workaround for the global array variable and lack of `typeof` implementation
         func_code = self._fixup_n_function_code(*jsi.extract_function_code(func_name), jscode)
 
-        self.cache.store('youtube-nsig', player_id, func_code)
         return jsi, player_id, func_code
 
     def _extract_n_function_from_code(self, jsi, func_code):
