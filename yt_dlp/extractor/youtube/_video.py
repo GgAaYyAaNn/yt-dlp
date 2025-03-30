@@ -4009,7 +4009,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 self._parse_time_text(self._get_text(vpir, 'dateText'))) or upload_date
 
         info['upload_date'] = upload_date
-        info['upload_date_full'] = search_meta('uploadDate')
+        info['upload_date_full'] = search_meta('uploadDate') or get_first(microformats, 'uploadDate')
         info['timestamp'] = timestamp
 
         if upload_date and live_status not in ('is_live', 'post_live', 'is_upcoming'):
