@@ -386,6 +386,12 @@ If you fork the project on GitHub, you can run your fork's [build workflow](.git
                                     recursive options. As a safety measure, each
                                     alias may be triggered a maximum of 100
                                     times. This option can be used multiple times
+    -t, --preset-alias PRESET       Applies a predefined set of options. e.g.
+                                    --preset-alias mp3. The following presets
+                                    are available: mp3, aac, mp4, mkv, sleep.
+                                    See the "Preset Aliases" section at the end
+                                    for more info. This option can be used
+                                    multiple times
 
 ## Network Options:
     --proxy URL                     Use the specified HTTP/HTTPS/SOCKS proxy. To
@@ -1098,6 +1104,23 @@ Make chapter entries for, or remove various segments (sponsor,
                                     can use this option multiple times to give
                                     arguments for different extractors
 
+## Preset Aliases:
+    -t mp3                          -f 'ba[acodec^=mp3]/ba/b' -x --audio-format
+                                    mp3
+
+    -t aac                          -f
+                                    'ba[acodec^=aac]/ba[acodec^=mp4a.40.]/ba/b'
+                                    -x --audio-format aac
+
+    -t mp4                          --merge-output-format mp4 --remux-video mp4
+                                    -S vcodec:h264,lang,quality,res,fps,hdr:12,a
+                                    codec:aac
+
+    -t mkv                          --merge-output-format mkv --remux-video mkv
+
+    -t sleep                        --sleep-subtitles 5 --sleep-requests 0.75
+                                    --sleep-interval 10 --max-sleep-interval 20
+
 # CONFIGURATION
 
 You can configure yt-dlp by placing any supported command line option in a configuration file. The configuration is loaded from the following locations:
@@ -1799,9 +1822,6 @@ The following extractors use this feature:
 #### vikichannel
 * `video_types`: Types of videos to download - one or more of `episodes`, `movies`, `clips`, `trailers`
 
-#### niconico
-* `segment_duration`: Segment duration in milliseconds for HLS-DMC formats. Use it at your own risk since this feature **may result in your account termination.**
-
 #### youtubewebarchive
 * `check_all`: Try to check more at the cost of more requests. One or more of `thumbnails`, `captures`
 
@@ -2153,7 +2173,7 @@ with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 
 * **[Format Sorting](#sorting-formats)**: The default format sorting options have been changed so that higher resolution and better codecs will be now preferred instead of simply using larger bitrate. Furthermore, you can now specify the sort order using `-S`. This allows for much easier format selection than what is possible by simply using `--format` ([examples](#format-selection-examples))
 
-* **Merged with animelover1984/youtube-dl**: You get most of the features and improvements from [animelover1984/youtube-dl](https://github.com/animelover1984/youtube-dl) including `--write-comments`, `BiliBiliSearch`, `BilibiliChannel`, Embedding thumbnail in mp4/ogg/opus, playlist infojson etc. Note that NicoNico livestreams are not available. See [#31](https://github.com/yt-dlp/yt-dlp/pull/31) for details.
+* **Merged with animelover1984/youtube-dl**: You get most of the features and improvements from [animelover1984/youtube-dl](https://github.com/animelover1984/youtube-dl) including `--write-comments`, `BiliBiliSearch`, `BilibiliChannel`, Embedding thumbnail in mp4/ogg/opus, playlist infojson etc. See [#31](https://github.com/yt-dlp/yt-dlp/pull/31) for details.
 
 * **YouTube improvements**:
     * Supports Clips, Stories (`ytstories:<channel UCID>`), Search (including filters)**\***, YouTube Music Search, Channel-specific search, Search prefixes (`ytsearch:`, `ytsearchdate:`)**\***, Mixes, and Feeds (`:ytfav`, `:ytwatchlater`, `:ytsubs`, `:ythistory`, `:ytrec`, `:ytnotif`)
