@@ -79,6 +79,7 @@ STREAMING_DATA_FETCH_GVS_PO_TOKEN = '__yt_dlp_fetch_gvs_po_token'
 STREAMING_DATA_PLAYER_TOKEN_PROVIDED = '__yt_dlp_player_token_provided'
 STREAMING_DATA_INNERTUBE_CONTEXT = '__yt_dlp_innertube_context'
 STREAMING_DATA_IS_PREMIUM_SUBSCRIBER = '__yt_dlp_is_premium_subscriber'
+STREAMING_DATA_FETCHED_TIMESTAMP = '__yt_dlp_fetched_timestamp'
 
 PO_TOKEN_GUIDE_URL = 'https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide'
 
@@ -256,10 +257,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         '401': {'ext': 'mp4', 'height': 2160, 'format_note': 'DASH video', 'vcodec': 'av01.0.12M.08'},
     }
     _SUBTITLE_FORMATS = ('json3', 'srv1', 'srv2', 'srv3', 'ttml', 'srt', 'vtt')
-    _DEFAULT_CLIENTS = ('tv', 'ios', 'web')
-    _DEFAULT_AUTHED_CLIENTS = ('tv', 'web')
+    _DEFAULT_CLIENTS = ('tv_simply', 'tv', 'web')
+    _DEFAULT_AUTHED_CLIENTS = ('tv', 'web_safari', 'web')
     # Premium does not require POT (except for subtitles)
-    _DEFAULT_PREMIUM_CLIENTS = ('tv', 'web')
+    _DEFAULT_PREMIUM_CLIENTS = ('tv', 'web_creator', 'web')
 
     _GEO_BYPASS = False
 
@@ -1816,6 +1817,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
     _PLAYER_JS_VARIANT_MAP = {
         'main': 'player_ias.vflset/en_US/base.js',
+        'tcc': 'player_ias_tcc.vflset/en_US/base.js',
         'tce': 'player_ias_tce.vflset/en_US/base.js',
         'es5': 'player_es5.vflset/en_US/base.js',
         'es6': 'player_es6.vflset/en_US/base.js',
@@ -2013,16 +2015,28 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
             time.sleep(max(0, FETCH_SPAN + fetch_time - time.time()))
 
+    def _get_player_js_version(self):
+        player_js_version = self._configuration_arg('player_js_version', [''])[0] or '20348@0004de42'
+        if player_js_version == 'actual':
+            return None, None
+        if not re.fullmatch(r'[0-9]{5,}@[0-9a-f]{8,}', player_js_version):
+            self.report_warning(
+                f'Invalid player JS version "{player_js_version}" specified. '
+                f'It should be "actual" or in the format of STS@HASH', only_once=True)
+            return None, None
+        return player_js_version.split('@')
+
     def _extract_player_url(self, *ytcfgs, webpage=None):
         player_url = traverse_obj(
             ytcfgs, (..., 'PLAYER_JS_URL'), (..., 'WEB_PLAYER_CONTEXT_CONFIGS', ..., 'jsUrl'),
             get_all=False, expected_type=str)
         if not player_url:
             return
+        player_id_override = self._get_player_js_version()[1]
 
         requested_js_variant = self._configuration_arg('player_js_variant', [''])[0] or 'main'
         if requested_js_variant in self._PLAYER_JS_VARIANT_MAP:
-            player_id = self._extract_player_info(player_url)
+            player_id = player_id_override or self._extract_player_info(player_url)
             original_url = player_url
             player_url = f'/s/player/{player_id}/{self._PLAYER_JS_VARIANT_MAP[requested_js_variant]}'
             if original_url != player_url:
@@ -2105,47 +2119,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         return lambda s: ''.join(s[i] for i in cache_spec)
 
-    def _print_sig_code(self, func, example_sig):
-        if not self.get_param('youtube_print_sig_code'):
-            return
-
-        def gen_sig_code(idxs):
-            def _genslice(start, end, step):
-                starts = '' if start == 0 else str(start)
-                ends = (':%d' % (end + step)) if end + step >= 0 else ':'
-                steps = '' if step == 1 else (':%d' % step)
-                return f's[{starts}{ends}{steps}]'
-
-            step = None
-            # Quelch pyflakes warnings - start will be set when step is set
-            start = '(Never used)'
-            for i, prev in zip(idxs[1:], idxs[:-1]):
-                if step is not None:
-                    if i - prev == step:
-                        continue
-                    yield _genslice(start, prev, step)
-                    step = None
-                    continue
-                if i - prev in [-1, 1]:
-                    step = i - prev
-                    start = prev
-                    continue
-                else:
-                    yield 's[%d]' % prev
-            if step is None:
-                yield 's[%d]' % i
-            else:
-                yield _genslice(start, i, step)
-
-        test_string = ''.join(map(chr, range(len(example_sig))))
-        cache_res = func(test_string)
-        cache_spec = [ord(c) for c in cache_res]
-        expr_code = ' + '.join(gen_sig_code(cache_spec))
-        signature_id_tuple = '({})'.format(', '.join(str(len(p)) for p in example_sig.split('.')))
-        code = (f'if tuple(len(p) for p in s.split(\'.\')) == {signature_id_tuple}:\n'
-                f'    return {expr_code}\n')
-        self.to_screen('Extracted signature function:\n' + code)
-
     def _parse_sig_js(self, jscode, player_url):
         # Examples where `sig` is funcname:
         # sig=function(a){a=a.split(""); ... ;return a.join("")};
@@ -2214,7 +2187,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         extract_sig = self._cached(
             self._extract_signature_function, 'sig', player_url, self._signature_cache_id(s))
         func = extract_sig(video_id, player_url, s)
-        self._print_sig_code(func, s)
         return func(s)
 
     def _decrypt_nsig(self, s, video_id, player_url):
@@ -2224,11 +2196,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         player_url = urljoin('https://www.youtube.com', player_url)
 
         try:
-            jsi, player_id, func_code = self._extract_n_function_code(video_id, player_url)
+            jsi, _, func_code = self._extract_n_function_code(video_id, player_url)
         except ExtractorError as e:
             raise ExtractorError('Unable to extract nsig function code', cause=e)
-        if self.get_param('youtube_print_sig_code'):
-            self.to_screen(f'Extracted nsig function from {player_id}:\n{func_code[1]}\n')
 
         try:
             extract_nsig = self._cached(self._extract_n_function_from_code, self._NSIG_FUNC_CACHE_ID, player_url)
@@ -2429,6 +2399,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         Extract signatureTimestamp (sts)
         Required to tell API what sig/player version is in use.
         """
+        player_sts_override = self._get_player_js_version()[0]
+        if player_sts_override:
+            return int(player_sts_override)
+
         if sts := traverse_obj(ytcfg, ('STS', {int_or_none})):
             return sts
 
@@ -2758,7 +2732,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         if max_depth == 1 and parent:
             return
 
-        max_comments, max_parents, max_replies, max_replies_per_thread, *_ = (
+        _max_comments, max_parents, max_replies, max_replies_per_thread, *_ = (
             int_or_none(p, default=sys.maxsize) for p in self._configuration_arg('max_comments') + [''] * 4)
 
         continuation = self._extract_continuation(root_continuation_data)
@@ -3244,6 +3218,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             elif pr:
                 # Save client details for introspection later
                 innertube_context = traverse_obj(player_ytcfg or self._get_default_ytcfg(client), 'INNERTUBE_CONTEXT')
+                fetched_timestamp = int(time.time())
                 sd = pr.setdefault('streamingData', {})
                 sd[STREAMING_DATA_CLIENT_NAME] = client
                 sd[STREAMING_DATA_FETCH_GVS_PO_TOKEN] = fetch_gvs_po_token_func
@@ -3256,6 +3231,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     f[STREAMING_DATA_FETCH_GVS_PO_TOKEN] = fetch_gvs_po_token_func
                     f[STREAMING_DATA_IS_PREMIUM_SUBSCRIBER] = is_premium_subscriber
                     f[STREAMING_DATA_PLAYER_TOKEN_PROVIDED] = bool(player_po_token)
+                    f[STREAMING_DATA_FETCHED_TIMESTAMP] = fetched_timestamp
                 if deprioritize_pr:
                     deprioritized_prs.append(pr)
                 else:
@@ -3308,11 +3284,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             f'{video_id}: {client_name} client {proto} formats require a GVS PO Token which was not provided. '
             'They will be skipped as they may yield HTTP Error 403. '
             f'You can manually pass a GVS PO Token for this client with --extractor-args "youtube:po_token={client_name}.gvs+XXX". '
-            f'For more information, refer to  {PO_TOKEN_GUIDE_URL} . '
-            'To enable these broken formats anyway, pass --extractor-args "youtube:formats=missing_pot"')
+            f'For more information, refer to  {PO_TOKEN_GUIDE_URL}')
 
         # Only raise a warning for non-default clients, to not confuse users.
-        # iOS HLS formats still work without PO Token, so we don't need to warn about them.
         if client_name in (*self._DEFAULT_CLIENTS, *self._DEFAULT_AUTHED_CLIENTS):
             self.write_debug(msg, only_once=True)
         else:
@@ -3374,8 +3348,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         # save pots per client to avoid fetching again
         gvs_pots = {}
 
+        # For handling potential pre-playback required waiting period
+        playback_wait = int_or_none(self._configuration_arg('playback_wait', [None])[0], default=6)
+
         for fmt in streaming_formats:
             client_name = fmt[STREAMING_DATA_CLIENT_NAME]
+            available_at = fmt[STREAMING_DATA_FETCHED_TIMESTAMP] + playback_wait
             if fmt.get('targetDurationSec'):
                 continue
 
@@ -3557,6 +3535,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if single_stream and dct.get('ext'):
                 dct['container'] = dct['ext'] + '_dash'
 
+            # For handling potential pre-playback required waiting period
+            if live_status not in ('is_live', 'post_live'):
+                dct['available_at'] = available_at
+
             if (all_formats or 'dashy' in format_types) and dct['filesize']:
                 yield {
                     **dct,
@@ -3570,23 +3552,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         needs_live_processing = self._needs_live_processing(live_status, duration)
         skip_bad_formats = 'incomplete' not in format_types
-        if self._configuration_arg('include_incomplete_formats'):
-            skip_bad_formats = False
-            self._downloader.deprecated_feature('[youtube] include_incomplete_formats extractor argument is deprecated. '
-                                                'Use formats=incomplete extractor argument instead')
 
         skip_manifests = set(self._configuration_arg('skip'))
-        if (not self.get_param('youtube_include_hls_manifest', True)
-                or needs_live_processing == 'is_live'  # These will be filtered out by YoutubeDL anyway
+        if (needs_live_processing == 'is_live'  # These will be filtered out by YoutubeDL anyway
                 or (needs_live_processing and skip_bad_formats)):
             skip_manifests.add('hls')
-
-        if not self.get_param('youtube_include_dash_manifest', True):
-            skip_manifests.add('dash')
-        if self._configuration_arg('include_live_dash'):
-            self._downloader.deprecated_feature('[youtube] include_live_dash extractor argument is deprecated. '
-                                                'Use formats=incomplete extractor argument instead')
-        elif skip_bad_formats and live_status == 'is_live' and needs_live_processing != 'is_live':
+        if skip_bad_formats and live_status == 'is_live' and needs_live_processing != 'is_live':
             skip_manifests.add('dash')
 
         def process_manifest_format(f, proto, client_name, itag, missing_pot):
@@ -3594,17 +3565,20 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if not all_formats and key in itags[itag]:
                 return False
 
+            # For handling potential pre-playback required waiting period
+            if live_status not in ('is_live', 'post_live'):
+                f['available_at'] = available_at
+
             if f.get('source_preference') is None:
                 f['source_preference'] = -1
+
+            # Deprioritize since its pre-merged m3u8 formats may have lower quality audio streams
+            if client_name == 'web_safari' and proto == 'hls' and live_status != 'is_live':
+                f['source_preference'] -= 1
 
             if missing_pot:
                 f['format_note'] = join_nonempty(f.get('format_note'), 'MISSING POT', delim=' ')
                 f['source_preference'] -= 20
-
-            # XXX: Check if IOS HLS formats are affected by PO token enforcement; temporary
-            # See https://github.com/yt-dlp/yt-dlp/issues/13511
-            if proto == 'hls' and client_name == 'ios':
-                f['__needs_testing'] = True
 
             itags[itag].add(key)
 
@@ -4044,12 +4018,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         if needs_live_processing:
             self._prepare_live_from_start_formats(
                 formats, video_id, live_start_time, url, webpage_url, smuggled_data, live_status == 'is_live')
-        elif live_status != 'is_live':
-            # Handle pre-playback waiting period
-            playback_wait = int_or_none(self._configuration_arg('playback_wait', [None])[0], default=6)
-            available_at = int(time.time()) + playback_wait
-            for fmt in formats:
-                fmt['available_at'] = available_at
 
         formats.extend(self._extract_storyboard(player_responses, duration))
 
@@ -4422,7 +4390,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         if upload_date and live_status not in ('is_live', 'post_live', 'is_upcoming'):
             # Newly uploaded videos' HLS formats are potentially problematic and need to be checked
-            # XXX: This is redundant for as long as we are already checking all IOS HLS formats
             upload_datetime = datetime_from_str(upload_date).replace(tzinfo=dt.timezone.utc)
             if upload_datetime >= datetime_from_str('today-2days'):
                 for fmt in info['formats']:
