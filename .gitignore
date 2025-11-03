@@ -107,6 +107,7 @@ README.txt
 test/testdata/sigs/player-*.js
 test/testdata/thumbnails/empty.webp
 test/testdata/thumbnails/foo\ %d\ bar/foo_%d.*
+.ejs-*
 
 # Binary
 /youtube-dl
@@ -132,3 +133,6 @@ yt-dlp-plugins
 
 
 my_tests
+
+# Packages
+yt_dlp_ejs/
