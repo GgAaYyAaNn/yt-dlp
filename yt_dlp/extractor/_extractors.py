@@ -564,7 +564,10 @@ from .eroprofile import (
     EroProfileAlbumIE,
     EroProfileIE,
 )
-from .err import ERRJupiterIE
+from .err import (
+    ERRArhiivIE,
+    ERRJupiterIE,
+)
 from .ertgr import (
     ERTFlixCodenameIE,
     ERTFlixIE,
@@ -2082,11 +2085,11 @@ from .tiktok import (
     TikTokEffectIE,
     TikTokIE,
     TikTokLiveIE,
+    TikTokPhotoIE,
     TikTokSoundIE,
     TikTokTagIE,
     TikTokUserIE,
     TikTokVMIE,
-    TikTokPhotoIE
 )
 from .tmz import TMZIE
 from .tnaflix import (
@@ -2361,7 +2364,11 @@ from .voicy import (
     VoicyChannelIE,
     VoicyIE,
 )
-from .volejtv import VolejTVIE
+from .volejtv import (
+    VolejTVCategoryPlaylistIE,
+    VolejTVClubPlaylistIE,
+    VolejTVIE,
+)
 from .voxmedia import (
     VoxMediaIE,
     VoxMediaVolumeIE,
