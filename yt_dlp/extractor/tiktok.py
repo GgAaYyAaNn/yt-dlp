@@ -233,6 +233,9 @@ class TikTokBaseIE(InfoExtractor):
             raise ExtractorError('Unable to extract aweme detail info', video_id=aweme_id)
         return self._parse_aweme_video_app(aweme_detail)
 
+    def _is_challenge_webpage(self, webpage):
+        return find_element(id='cs', html=True)(webpage) is not None
+
     def _solve_challenge_and_set_cookies(self, webpage):
         challenge_data = traverse_obj(webpage, (
             {find_element(id='cs', html=True)}, {extract_attributes}, 'class',
@@ -308,29 +311,25 @@ class TikTokBaseIE(InfoExtractor):
 
             return webpage
 
-        webpage = get_webpage()
-        if webpage is False:
-            return video_data, status
-
-        universal_data = self._get_universal_data(webpage, video_id)
-        if not universal_data:
-            try:
-                cookie_names = self._solve_challenge_and_set_cookies(webpage)
-            except ExtractorError as e:
-                if fatal:
-                    raise
-                self.report_warning(e.orig_msg, video_id=video_id)
-                return video_data, status
-
-            webpage = get_webpage(note='Downloading webpage with challenge cookie')
-            # Manually clear challenge cookies that should expire immediately after webpage request
-            for cookie_name in filter(None, cookie_names):
-                self.cookiejar.clear(domain='.tiktok.com', path='/', name=cookie_name)
+        for _ in range(5):
+            webpage = get_webpage()
             if webpage is False:
-                return video_data, status
-            universal_data = self._get_universal_data(webpage, video_id)
+                time.sleep(10)
+                continue
+            if self._is_challenge_webpage(webpage):
+                try:
+                    cookie_names = self._solve_challenge_and_set_cookies(webpage)
+                except ExtractorError as e:
+                    self.report_warning(e.orig_msg, video_id=video_id)
+                    continue
+                webpage = get_webpage(note='Downloading webpage with challenge cookie')
+                for cookie_name in filter(None, cookie_names):
+                    self.cookiejar.clear(domain='.tiktok.com', path='/', name=cookie_name)
 
-        if not universal_data:
+            universal_data = self._get_universal_data(webpage, video_id)
+            if universal_data:
+                break
+        else:
             message = 'Unable to extract universal data for rehydration'
             if fatal:
                 raise ExtractorError(message)
@@ -1191,9 +1190,14 @@ class TikTokUserIE(TikTokBaseIE):
                     'Log into an account that has access')
 
     def _extract_sec_uid_from_embed(self, user_name):
-        webpage = self._download_webpage(
-            f'https://www.tiktok.com/embed/@{user_name}', user_name,
-            'Downloading user embed page', errnote=False, fatal=False)
+        webpage = None
+        for _ in range(3):
+            webpage = self._download_webpage(
+                f'https://www.tiktok.com/embed/@{user_name}', user_name,
+                'Downloading user embed page', errnote=False, fatal=False, impersonate=True)
+            if webpage:
+                break
+            time.sleep(10)
         if not webpage:
             self.report_warning('This user\'s account is either private or has embedding disabled')
             return None
