@@ -1622,6 +1622,16 @@ class TikTokVMIE(InfoExtractor):
         return self.url_result(new_url)
 
 
+class TikTokTtSiteIE(TikTokVMIE):
+    """TikTok share links on tt.site (e.g. https://www.tt.site/t/ZSbE6dm89/).
+
+    Like vm.tiktok.com links, they redirect to the real tiktok.com URL, which TikTokVMIE resolves.
+    """
+    _VALID_URL = r'https?://(?:www\.)?tt\.site/t/(?P<id>\w+)'
+    IE_NAME = 'tt.site'
+    _TESTS = []
+
+
 class TikTokLiveIE(TikTokBaseIE):
     _VALID_URL = r'''(?x)https?://(?:
         (?:www\.)?tiktok\.com/@(?P<uploader>[\w.-]+)/live|

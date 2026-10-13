@@ -1974,6 +1974,7 @@ from .tiktok import (
     TikTokPhotoIE,
     TikTokSoundIE,
     TikTokTagIE,
+    TikTokTtSiteIE,
     TikTokUserIE,
     TikTokVMIE,
 )
